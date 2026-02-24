@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.95",
+    "express": "^5.2.1",
+    "gif-encoder-2": "^1.0.5"
+  }
+}
