@@ -6,16 +6,13 @@ const app = express();
 const port = 3000;
 
 app.get('/contador', (req, res) => {
-    // 1. Capturamos las variables que vienen de Emarsys por la URL
+    // 1. Variables dinámicas desde Emarsys
     const fechaTermino = req.query.termino ? new Date(req.query.termino) : new Date();
-    
-    // El color viene de Emarsys SIN el "#" (ej: E63946), así que se lo agregamos aquí
     const colorTexto = req.query.color ? `#${req.query.color}` : '#E63946';
-    // Capturamos la fuente y el tamaño (con valores por defecto si vienen vacíos)
+    const colorFondo = req.query.bg ? `#${req.query.bg}` : '#ffffff'; // <-- Volvemos al fondo sólido
     const fontName = req.query.font || 'Arial';
     const fontSize = req.query.size || '36';
-    // EXTRA: Siempre es bueno poder controlar el fondo para que combine con el email
-    const colorFondo = req.query.bg ? `#${req.query.bg}` : '#ffffff';
+    const fontWeight = req.query.weight || 'bold'; 
 
     const width = 400;
     const height = 100;
@@ -28,35 +25,50 @@ app.get('/contador', (req, res) => {
     encoder.setRepeat(0);   
     encoder.setDelay(1000); 
 
-    const frames = 60;
+    // Revisamos si la fecha ya pasó antes de empezar a dibujar
+    const ahoraInicial = new Date().getTime();
+    const diferenciaInicial = fechaTermino.getTime() - ahoraInicial;
 
-    for (let i = 0; i < frames; i++) {
-        const ahora = new Date().getTime() + (i * 1000);
-        const diferencia = fechaTermino.getTime() - ahora;
-        
-        const tiempoRestante = diferencia > 0 ? diferencia : 0;
-        
-        const dias = Math.floor(tiempoRestante / (1000 * 60 * 60 * 24));
-        const horas = Math.floor((tiempoRestante % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutos = Math.floor((tiempoRestante % (1000 * 60 * 60)) / (1000 * 60));
-        const segundos = Math.floor((tiempoRestante % (1000 * 60)) / 1000);
-        
-        const texto = `${dias}d ${horas.toString().padStart(2, '0')}h ${minutos.toString().padStart(2, '0')}m ${segundos.toString().padStart(2, '0')}s`;
-
-        // 2. Aplicamos las variables al dibujo
-        
-        // Dibujamos el fondo dinámico
+    if (diferenciaInicial <= 0) {
+        // ESTADO CERO: Si la oferta ya terminó, dibujamos un solo frame estático
         ctx.fillStyle = colorFondo;
         ctx.fillRect(0, 0, width, height);
         
-        // Dibujamos el texto con el color, tamaño y fuente dinámicos
         ctx.fillStyle = colorTexto; 
-        ctx.font = `bold ${fontSize}px ${fontName}`;
+        ctx.font = `${fontWeight} ${fontSize}px "${fontName}"`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(texto, width / 2, height / 2);
+        ctx.fillText("¡Oferta finalizada!", width / 2, height / 2);
 
-        encoder.addFrame(ctx);
+        encoder.addFrame(ctx); // Un solo frame, no pesa nada y no parpadea
+    } else {
+        // ESTADO NORMAL: Hacemos el loop de 60 segundos
+        const frames = 60;
+        for (let i = 0; i < frames; i++) {
+            const ahora = new Date().getTime() + (i * 1000);
+            const diferencia = fechaTermino.getTime() - ahora;
+            const tiempoRestante = diferencia > 0 ? diferencia : 0;
+            
+            const dias = Math.floor(tiempoRestante / (1000 * 60 * 60 * 24));
+            const horas = Math.floor((tiempoRestante % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutos = Math.floor((tiempoRestante % (1000 * 60 * 60)) / (1000 * 60));
+            const segundos = Math.floor((tiempoRestante % (1000 * 60)) / 1000);
+            
+            const texto = `${dias}d ${horas.toString().padStart(2, '0')}h ${minutos.toString().padStart(2, '0')}m ${segundos.toString().padStart(2, '0')}s`;
+
+            // Fondo sólido para un anti-aliasing perfecto
+            ctx.fillStyle = colorFondo;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Texto dinámico
+            ctx.fillStyle = colorTexto; 
+            ctx.font = `${fontWeight} ${fontSize}px "${fontName}"`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(texto, width / 2, height / 2);
+
+            encoder.addFrame(ctx);
+        }
     }
 
     encoder.finish();
